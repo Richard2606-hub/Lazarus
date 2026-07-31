@@ -1,0 +1,64 @@
+import sys
+import os
+
+# Add backend directory to sys.path
+sys.path.append(os.path.dirname(os.path.abspath(__file__)))
+
+from database import SessionLocal, engine
+import models
+from pipeline.ingestion import ingest_failures
+from pipeline.classifier import classify_failure
+from pipeline.embedder import get_structural_embedding
+from pipeline.verification import verify_and_route
+
+# Ensure tables are created
+models.Base.metadata.create_all(bind=engine)
+
+def main():
+    db = SessionLocal()
+    print("Ingesting records...")
+    records = ingest_failures()
+    
+    for rec in records:
+        print(f"Processing record: {rec['title']}")
+        
+        # Check if it already exists
+        existing = db.query(models.FailureRecord).filter_by(source_url=rec["source_url"]).first()
+        if existing:
+            print("Record already exists. Skipping.")
+            continue
+            
+        # Classify failure
+        cause, confidence = classify_failure(rec)
+        
+        # Embed structure
+        embedding = get_structural_embedding(rec["method_description"])
+        
+        # Create database entry
+        db_record = models.FailureRecord(
+            title=rec["title"],
+            authors=rec["authors"],
+            abstract=rec["abstract"],
+            method_description=rec["method_description"],
+            source_type=rec["source_type"],
+            source_url=rec["source_url"],
+            stated_reason=rec["stated_reason"],
+            failure_cause_tag=cause,
+            classification_confidence=confidence
+        )
+        
+        if models.HAS_PGVECTOR:
+            db_record.structural_embedding = embedding
+            
+        db.add(db_record)
+        db.commit()
+        db.refresh(db_record)
+        
+        # Verify and route
+        verify_and_route(db_record.id, db)
+        
+    print("Ingestion complete.")
+    db.close()
+
+if __name__ == "__main__":
+    main()
