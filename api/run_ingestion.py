@@ -20,7 +20,8 @@ def main():
     records = fetch_retracted_papers(limit=50)
     
     for rec in records:
-        print(f"Processing record: {rec['title']}")
+        safe_title = rec['title'].encode('ascii', 'replace').decode('ascii')
+        print(f"Processing record: {safe_title}")
         
         # Check if it already exists
         existing = db.query(models.FailureRecord).filter_by(source_url=rec["source_url"]).first()

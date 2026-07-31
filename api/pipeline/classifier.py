@@ -35,7 +35,8 @@ def classify_failure(record: dict) -> Tuple[str, str, float]:
         response = model.generate_content(prompt)
         result = response.text.strip().split('|')
         if len(result) >= 3:
-            return (result[0].strip(), result[1].strip(), float(result[2].strip()))
+            clean_score = result[2].strip().replace('"', '').replace("'", "")
+            return (result[0].strip(), result[1].strip(), float(clean_score))
     except Exception as e:
         print(f"Gemini API Error: {e}")
         
