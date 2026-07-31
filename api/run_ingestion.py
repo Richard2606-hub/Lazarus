@@ -6,7 +6,7 @@ sys.path.append(os.path.dirname(os.path.abspath(__file__)))
 
 from database import SessionLocal, engine
 import models
-from pipeline.ingestion import ingest_failures
+from pipeline.scraper import fetch_retracted_papers
 from pipeline.classifier import classify_failure
 from pipeline.embedder import get_structural_embedding
 from pipeline.verification import verify_and_route
@@ -16,8 +16,8 @@ models.Base.metadata.create_all(bind=engine)
 
 def main():
     db = SessionLocal()
-    print("Ingesting records...")
-    records = ingest_failures()
+    print("Ingesting records from Crossref...")
+    records = fetch_retracted_papers(limit=5)
     
     for rec in records:
         print(f"Processing record: {rec['title']}")
@@ -28,8 +28,9 @@ def main():
             print("Record already exists. Skipping.")
             continue
             
-        # Classify failure
-        cause, confidence = classify_failure(rec)
+        # Classify failure and extract method description using Gemini
+        method_desc, cause, confidence = classify_failure(rec)
+        rec["method_description"] = method_desc
         
         # Embed structure
         embedding = get_structural_embedding(rec["method_description"])
