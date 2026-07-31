@@ -17,7 +17,7 @@ models.Base.metadata.create_all(bind=engine)
 def main():
     db = SessionLocal()
     print("Ingesting records from Crossref...")
-    records = fetch_retracted_papers(limit=5)
+    records = fetch_retracted_papers(limit=50)
     
     for rec in records:
         print(f"Processing record: {rec['title']}")
