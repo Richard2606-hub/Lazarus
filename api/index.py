@@ -12,7 +12,7 @@ import schemas
 from database import engine, get_db
 from pipeline.verification import CONFIDENCE_THRESHOLD
 
-models.Base.metadata.create_all(bind=engine)
+# models.Base.metadata.create_all(bind=engine)
 
 app = FastAPI(title="Lazarus API")
 
