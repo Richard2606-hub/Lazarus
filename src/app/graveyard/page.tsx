@@ -5,13 +5,13 @@ import { AppHeader } from "@/components/app-header";
 import { PrototypeNote } from "@/components/prototype-note";
 import { SavedSearches } from "@/components/saved-searches";
 import { GraveyardMatch, queryGraveyard } from "@/lib/api";
-import { motion, AnimatePresence } from "framer-motion";
+import { motion, AnimatePresence, Variants } from "framer-motion";
 import { X, Search, AlertCircle, CheckCircle2 } from "lucide-react";
 
 const EXAMPLE_QUERY =
   "Using linear probing on frozen representations for external sensor classification";
 
-const containerVariants = {
+const containerVariants: Variants = {
   hidden: { opacity: 0 },
   show: {
     opacity: 1,
@@ -19,7 +19,7 @@ const containerVariants = {
   }
 };
 
-const itemVariants = {
+const itemVariants: Variants = {
   hidden: { opacity: 0, y: 20 },
   show: { opacity: 1, y: 0, transition: { type: "spring", stiffness: 300, damping: 24 } }
 };
