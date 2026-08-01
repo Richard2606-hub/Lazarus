@@ -273,3 +273,27 @@ def decide_verification(
         decision=request.decision,
         message=message,
     )
+
+@app.delete("/api/verification/{record_id}/decision")
+def undo_verification(record_id: int, db: Session = Depends(get_db)):
+    record = db.query(models.FailureRecord).filter(
+        models.FailureRecord.id == record_id
+    ).first()
+    if record is None:
+        raise HTTPException(status_code=404, detail="Review item not found")
+
+    decision = db.query(models.ReviewDecision).filter(
+        models.ReviewDecision.failure_record_id == record_id
+    ).first()
+
+    if decision is None:
+        raise HTTPException(status_code=404, detail="No review decision found to undo")
+
+    # Reset failure record state
+    record.system_verified = False
+    if record.failure_cause_tag == "Rejected by reviewer":
+        record.failure_cause_tag = None
+    
+    db.delete(decision)
+    db.commit()
+    return {"status": "success", "message": "Decision undone successfully"}

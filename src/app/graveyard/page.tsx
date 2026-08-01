@@ -6,7 +6,7 @@ import { PrototypeNote } from "@/components/prototype-note";
 import { SavedSearches } from "@/components/saved-searches";
 import { GraveyardMatch, queryGraveyard } from "@/lib/api";
 import { motion, AnimatePresence, Variants } from "framer-motion";
-import { X, Search, AlertCircle, CheckCircle2 } from "lucide-react";
+import { X, Search, AlertCircle, CheckCircle2, Filter } from "lucide-react";
 
 const EXAMPLE_QUERY =
   "Using linear probing on frozen representations for external sensor classification";
@@ -30,6 +30,7 @@ export default function Graveyard() {
   const [loading, setLoading] = useState(false);
   const [searched, setSearched] = useState(false);
   const [error, setError] = useState("");
+  const [verifiedOnly, setVerifiedOnly] = useState(false);
 
   async function handleSearch(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
@@ -151,29 +152,53 @@ export default function Graveyard() {
                   <span className="step-label">Step 2 of 2</span>
                   <h2>{results.length} related failure {results.length === 1 ? "record" : "records"}</h2>
                 </div>
-                <p>Ranked by prototype query relevance</p>
+                <div className="flex flex-col items-end">
+                  <p>Ranked by prototype query relevance</p>
+                  <label className="flex items-center gap-2 mt-2 text-sm cursor-pointer select-none">
+                    <input 
+                      type="checkbox" 
+                      className="accent-[var(--success)]"
+                      checked={verifiedOnly}
+                      onChange={(e) => setVerifiedOnly(e.target.checked)}
+                    />
+                    <Filter size={14} className="text-[#75877f]" />
+                    <span>Verified records only</span>
+                  </label>
+                </div>
               </motion.div>
             )}
           </AnimatePresence>
 
           <AnimatePresence mode="wait">
-            {searched && results.length === 0 && (
+            {searched && (verifiedOnly ? results.filter(r => r.record.system_verified) : results).length === 0 && (
               <motion.div initial={{ opacity: 0, scale: 0.95 }} animate={{ opacity: 1, scale: 1 }} exit={{ opacity: 0, scale: 0.95 }} className="empty-state">
                 <AlertCircle size={48} className="mx-auto mb-4 text-[#75877f] opacity-50" />
-                <strong>No related record was found in this bounded corpus.</strong>
+                <strong>No related record was found{verifiedOnly && results.length > 0 ? " matching this filter" : " in this bounded corpus"}.</strong>
                 <p>Try adding the method, data type, failure mode, or key constraint.</p>
+                <button 
+                  type="button" 
+                  className="button mt-6 bg-[#2c3631] text-white hover:bg-[#3d4b43]"
+                  onClick={() => {
+                    setQuery("");
+                    setSearched(false);
+                    setResults([]);
+                    setVerifiedOnly(false);
+                  }}
+                >
+                  Clear Search
+                </button>
               </motion.div>
             )}
           </AnimatePresence>
 
-          {results.length > 0 && (
+          {(verifiedOnly ? results.filter(r => r.record.system_verified) : results).length > 0 && (
             <motion.div 
               variants={containerVariants}
               initial="hidden"
               animate="show"
               className="result-list"
             >
-              {results.map(({ record, match_confidence }) => (
+              {(verifiedOnly ? results.filter(r => r.record.system_verified) : results).map(({ record, match_confidence }) => (
                 <motion.article variants={itemVariants} key={record.id} className="result-card result-card-danger">
                   <div className="result-card-topline">
                     <span className="source-type">{record.source_type.replaceAll("_", " ")}</span>

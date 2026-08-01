@@ -17,7 +17,7 @@ models.Base.metadata.create_all(bind=engine)
 def main():
     db = SessionLocal()
     print("Ingesting records from Crossref...")
-    records = fetch_retracted_papers(limit=50)
+    records = fetch_retracted_papers(limit=5)
     
     for rec in records:
         safe_title = rec['title'].encode('ascii', 'replace').decode('ascii')

@@ -8,9 +8,10 @@ import {
   getVerificationHistory,
   getVerificationQueue,
   ReviewHistoryItem,
+  undoVerification,
 } from "@/lib/api";
 import { motion, AnimatePresence, Variants } from "framer-motion";
-import { RefreshCcw, CheckCircle2, XCircle, AlertCircle, ExternalLink } from "lucide-react";
+import { RefreshCcw, CheckCircle2, XCircle, AlertCircle, ExternalLink, RotateCcw } from "lucide-react";
 
 const containerVariants: Variants = {
   hidden: { opacity: 0 },
@@ -112,6 +113,26 @@ export default function Verification() {
     }
   }
 
+  async function handleUndo(recordId: number) {
+    if (!window.confirm("Undo this decision and return it to the queue?")) return;
+    setError("");
+    setMessage("");
+    try {
+      const response = await undoVerification(recordId);
+      setMessage(response.message);
+      // Refresh the queue and history to get the accurate state
+      setQueue(await getVerificationQueue());
+      setHistory(await getVerificationHistory());
+    } catch (requestError) {
+      setError(
+        requestError instanceof Error
+          ? requestError.message
+          : "The decision could not be undone.",
+      );
+    }
+  }
+
+
   return (
     <div className="page-shell">
       <AppHeader section="Verification Exchange" />
@@ -199,17 +220,32 @@ export default function Verification() {
                         rows={3}
                         maxLength={1000}
                         value={rationales[item.id] ?? ""}
+                        onInput={(e) => {
+                          e.currentTarget.style.height = "auto";
+                          e.currentTarget.style.height = `${e.currentTarget.scrollHeight}px`;
+                        }}
                         onChange={(event) =>
                           setRationales((current) => ({ ...current, [item.id]: event.target.value }))
                         }
+                        onKeyDown={(e) => {
+                          const rationaleText = rationales[item.id]?.trim() ?? "";
+                          if ((e.ctrlKey || e.metaKey) && e.key === "Enter" && rationaleText.length >= 8) {
+                            void handleDecision(item.id, "confirm");
+                          } else if ((e.ctrlKey || e.metaKey) && e.key === "Backspace" && rationaleText.length >= 8) {
+                            void handleDecision(item.id, "reject");
+                          }
+                        }}
                         placeholder="Example: The withdrawal notice does not identify a methodological cause."
                       />
                     </label>
 
                     <div className="review-actions">
-                      <a href={item.source_url} target="_blank" rel="noreferrer" className="source-link inline-flex items-center">
-                        Open source <ExternalLink size={14} className="ml-1" />
-                      </a>
+                      <div className="flex flex-col gap-1 text-sm text-[#75877f]">
+                        <a href={item.source_url} target="_blank" rel="noreferrer" className="source-link inline-flex items-center">
+                          Open source <ExternalLink size={14} className="ml-1" />
+                        </a>
+                        <span className="text-xs mt-1">Shortcuts: Ctrl+Enter (Confirm) · Ctrl+Backspace (Reject)</span>
+                      </div>
                       <div>
                         <button
                           type="button"
@@ -251,9 +287,19 @@ export default function Verification() {
             <ol className="history-list">
               {history.slice(0, 8).map((item) => (
                 <motion.li initial={{ opacity: 0, x: -10 }} animate={{ opacity: 1, x: 0 }} key={item.id}>
-                  <span className={item.decision === "confirm" ? "decision-confirm" : "decision-reject"}>
-                    {item.decision === "confirm" ? "Confirmed" : "Rejected"}
-                  </span>
+                  <div className="flex items-center justify-between">
+                    <span className={item.decision === "confirm" ? "decision-confirm" : "decision-reject"}>
+                      {item.decision === "confirm" ? "Confirmed" : "Rejected"}
+                    </span>
+                    <button 
+                      type="button" 
+                      onClick={() => void handleUndo(item.failure_record_id)}
+                      className="text-button inline-flex items-center text-xs px-2 py-1"
+                      title="Undo this decision"
+                    >
+                      <RotateCcw size={14} className="mr-1" /> Undo
+                    </button>
+                  </div>
                   <p>{item.rationale}</p>
                   <time dateTime={item.created_at}>{new Date(item.created_at).toLocaleString()}</time>
                 </motion.li>

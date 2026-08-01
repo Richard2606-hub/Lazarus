@@ -117,3 +117,9 @@ export function getSystemStatus() {
 export function getVerificationHistory() {
   return request<ReviewHistoryItem[]>("/api/verification/history");
 }
+
+export function undoVerification(id: number) {
+  return request<{ status: string; message: string }>(`/api/verification/${id}/decision`, {
+    method: "DELETE",
+  });
+}
