@@ -37,7 +37,7 @@ def _generate_explanation(query_text: str, record_method: str) -> str:
         print(f"Gemini Explanation Error: {e}")
         return "Explanation could not be generated due to API error."
 
-# models.Base.metadata.create_all(bind=engine)
+models.Base.metadata.create_all(bind=engine)
 
 app = FastAPI(title="Lazarus API")
 
