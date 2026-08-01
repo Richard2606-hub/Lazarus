@@ -42,6 +42,7 @@ class NecromancerMatch(BaseModel):
     record: FailureRecord
     explanation: str
     match_confidence: float
+    topical_distance: Optional[float] = None
 
 class ReviewDecision(BaseModel):
     decision: Literal["confirm", "reject"]

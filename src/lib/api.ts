@@ -19,6 +19,7 @@ export type GraveyardMatch = {
 
 export type NecromancerMatch = GraveyardMatch & {
   explanation: string;
+  topical_distance?: number;
 };
 
 export type SystemStatus = {

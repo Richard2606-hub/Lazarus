@@ -30,6 +30,8 @@ class FailureRecord(Base):
     if HAS_PGVECTOR:
         # Embedding of the method structure
         structural_embedding = Column(Vector(384)) # e.g. using all-MiniLM-L6-v2 which is 384 dims
+        # Embedding of the problem domain topic for topological exclusion
+        domain_topic_embedding = Column(Vector(384))
 
     review_decisions = relationship(
         "ReviewDecision",

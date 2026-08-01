@@ -116,7 +116,7 @@ export default function Necromancer() {
             <div className="form-footer">
               <span>{query.length} / 2,000 characters</span>
               <button type="submit" className="button button-accent" disabled={loading}>
-                {loading ? "Comparing methods…" : <><Search size={18} className="mr-2" /> Find analogous methods</>}
+                {loading ? "Generating cross-domain insights…" : <><Search size={18} className="mr-2" /> Find analogous methods</>}
               </button>
             </div>
           </form>
@@ -167,13 +167,15 @@ export default function Necromancer() {
               animate="show"
               className="result-list"
             >
-              {results.map(({ record, explanation, match_confidence }) => (
+              {results.map(({ record, explanation, match_confidence, topical_distance }) => (
                 <motion.article variants={itemVariants} key={record.id} className="result-card result-card-accent">
                   <div className="result-card-topline">
-                    <span className="source-type">Cross-domain candidate</span>
+                    <span className="source-type">
+                      Cross-domain candidate {topical_distance != null ? `(Distance: ${Math.round(topical_distance * 100)}%)` : ''}
+                    </span>
                     <span className={record.system_verified ? "confidence verified" : "confidence pending flex items-center"}>
                       {record.system_verified ? <CheckCircle2 size={14} className="mr-1" /> : <AlertCircle size={14} className="mr-1" />}
-                      {record.system_verified ? "System verified" : "Pending human review"} · {Math.round(match_confidence * 100)}%
+                      {record.system_verified ? "System verified" : "Pending human review"} · {Math.round(match_confidence * 100)}% Match
                     </span>
                   </div>
                   <h3>{record.title}</h3>

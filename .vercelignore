@@ -1,0 +1,5 @@
+api/**
+Dockerfile
+docker-compose.yml
+requirements.txt
+lazarus.db

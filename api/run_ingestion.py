@@ -8,7 +8,7 @@ from database import SessionLocal, engine
 import models
 from pipeline.scraper import fetch_retracted_papers
 from pipeline.classifier import classify_failure
-from pipeline.embedder import get_structural_embedding
+from pipeline.embedder import get_structural_embedding, get_topic_embedding
 from pipeline.verification import verify_and_route
 
 # Ensure tables are created
@@ -33,8 +33,9 @@ def main():
         method_desc, cause, confidence = classify_failure(rec)
         rec["method_description"] = method_desc
         
-        # Embed structure
-        embedding = get_structural_embedding(rec["method_description"])
+        # Embed structure and topic
+        structural_emb = get_structural_embedding(rec["method_description"])
+        topic_emb = get_topic_embedding(rec.get("abstract", rec["title"]))
         
         # Create database entry
         db_record = models.FailureRecord(
@@ -50,7 +51,8 @@ def main():
         )
         
         if models.HAS_PGVECTOR:
-            db_record.structural_embedding = embedding
+            db_record.structural_embedding = structural_emb
+            db_record.domain_topic_embedding = topic_emb
             
         db.add(db_record)
         db.commit()

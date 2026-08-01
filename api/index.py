@@ -14,25 +14,42 @@ import models
 import schemas
 from database import engine, get_db
 from pipeline.verification import CONFIDENCE_THRESHOLD
+from pipeline.embedder import get_structural_embedding, get_topic_embedding
+import google.generativeai as genai
+
+# Setup Gemini model
+genai.configure(api_key=os.environ.get("GEMINI_API_KEY", ""))
+gemini_model = genai.GenerativeModel("gemini-3.5-flash-lite")
+
+def _generate_explanation(query_text: str, record_method: str) -> str:
+    prompt = f"""
+    The user is trying to solve a problem: "{query_text}"
+    We found a candidate method from a different domain: "{record_method}"
+    
+    Explain in 2-3 sentences why this candidate method's underlying structure might be relevant to the user's problem, despite being from a different domain. Do not invent facts, just focus on the structural/methodological similarity.
+    """
+    try:
+        if not os.environ.get("GEMINI_API_KEY"):
+            return "Gemini API key not configured. Explanation generation is disabled."
+        response = gemini_model.generate_content(prompt)
+        return response.text.strip()
+    except Exception as e:
+        print(f"Gemini Explanation Error: {e}")
+        return "Explanation could not be generated due to API error."
 
 # models.Base.metadata.create_all(bind=engine)
 
 app = FastAPI(title="Lazarus API")
 
-allowed_origins = [
-    origin.strip()
-    for origin in os.getenv(
-        "ALLOWED_ORIGINS", "http://localhost:3000,http://127.0.0.1:3000"
-    ).split(",")
-    if origin.strip()
-]
+# Allow CORS for development and deployed frontend
+frontend_url = os.environ.get("FRONTEND_URL", "http://localhost:3000")
 
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=allowed_origins,
-    allow_credentials=False,
-    allow_methods=["GET", "POST"],
-    allow_headers=["Content-Type"],
+    allow_origins=["http://localhost:3000", frontend_url],
+    allow_credentials=True,
+    allow_methods=["*"],
+    allow_headers=["*"],
 )
 
 STOP_WORDS = {
@@ -143,22 +160,61 @@ def query_graveyard(request: schemas.QueryRequest, db: Session = Depends(get_db)
 
 @app.post("/api/necromancer/query", response_model=List[schemas.NecromancerMatch])
 def query_necromancer(request: schemas.QueryRequest, db: Session = Depends(get_db)):
-    records = db.query(models.FailureRecord).filter(
-        models.FailureRecord.failure_cause_tag != "Rejected by reviewer",
-    ).all()
-    return [
-        schemas.NecromancerMatch(
-            record=record,
-            explanation=(
-                "This candidate shares method-level terms and constraints with the "
-                "stated problem. In the prototype, this is a lexical structural proxy; "
-                "the proposal's contrastively fine-tuned embedding model remains a "
-                "planned production component."
-            ),
-            match_confidence=score,
-        )
-        for record, score in _rank_records(request.query_text, records)[:10]
-    ]
+    if models.HAS_PGVECTOR:
+        query_structural_emb = get_structural_embedding(request.query_text)
+        query_topic_emb = get_topic_embedding(request.query_text)
+        
+        # Fetch top 20 by structural similarity
+        records_with_dist = db.query(
+            models.FailureRecord, 
+            models.FailureRecord.structural_embedding.cosine_distance(query_structural_emb).label('struct_dist'),
+            models.FailureRecord.domain_topic_embedding.cosine_distance(query_topic_emb).label('topic_dist')
+        ).filter(
+            models.FailureRecord.failure_cause_tag != "Rejected by reviewer"
+        ).order_by(
+            models.FailureRecord.structural_embedding.cosine_distance(query_structural_emb)
+        ).limit(20).all()
+        
+        # Filter for cross-domain (topic distance > 0.15)
+        filtered_records = []
+        for r, struct_dist, topic_dist in records_with_dist:
+            if topic_dist is not None and topic_dist > 0.15:
+                filtered_records.append((r, struct_dist, topic_dist))
+                
+        # If filtering removed everything, just fallback to structural matches
+        if not filtered_records:
+            filtered_records = records_with_dist
+            
+        results = []
+        for record, struct_dist, topic_dist in filtered_records[:10]:
+            match_confidence = max(0.0, min(1.0, 1.0 - (struct_dist if struct_dist is not None else 0.5)))
+            explanation = _generate_explanation(request.query_text, record.method_description)
+            results.append(
+                schemas.NecromancerMatch(
+                    record=record,
+                    explanation=explanation,
+                    match_confidence=match_confidence,
+                    topical_distance=topic_dist
+                )
+            )
+        return results
+    else:
+        records = db.query(models.FailureRecord).filter(
+            models.FailureRecord.failure_cause_tag != "Rejected by reviewer",
+        ).all()
+        
+        results = []
+        for record, score in _rank_records(request.query_text, records)[:10]:
+            explanation = _generate_explanation(request.query_text, record.method_description)
+            results.append(
+                schemas.NecromancerMatch(
+                    record=record,
+                    explanation=explanation,
+                    match_confidence=score,
+                    topical_distance=None
+                )
+            )
+        return results
 
 @app.get("/api/verification/queue", response_model=List[schemas.FailureRecord])
 def get_verification_queue(db: Session = Depends(get_db)):
