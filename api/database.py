@@ -23,7 +23,8 @@ if not DATABASE_URL:
         except Exception:
             DATABASE_URL = f"sqlite:///{src_db}"
     else:
-        DATABASE_URL = "sqlite:///./lazarus.db"
+        # If no DB was packaged, we must still create the new DB in the writable /tmp directory
+        DATABASE_URL = "sqlite:////tmp/lazarus.db"
 
 if DATABASE_URL.startswith("postgres://"):
     DATABASE_URL = DATABASE_URL.replace("postgres://", "postgresql://", 1)
