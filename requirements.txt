@@ -5,5 +5,4 @@ psycopg2-binary
 pgvector
 python-dotenv
 pydantic
-sentence-transformers
 google-generativeai
